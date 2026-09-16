@@ -11,6 +11,9 @@ import {
 } from 'viem'
 import {
   getBalance,
+  getBlockNumber,
+  getLogs,
+  getTransactionReceipt,
   sendCalls,
   sendTransactionSync,
   signMessage,
@@ -3230,6 +3233,57 @@ describe.each(adapters)('$name', ({ adapter, name }: (typeof adapters)[number]) 
       })
 
       expect((result.tx as { feePayerSignature?: unknown }).feePayerSignature).toBeDefined()
+    })
+
+    test('behavior: feePayer URL sponsors wallet_revokeAccessKey', async () => {
+      const provider = Provider.create({ adapter: adapter(), chains: [chain] })
+      const connected = await connect(provider)
+      await fund(connected)
+      const { keyAuthorization } = await provider.request({
+        method: 'wallet_authorizeAccessKey',
+        params: [{ expiry: Expiry.days(1) }],
+      })
+      await provider.request({
+        method: 'eth_sendTransactionSync',
+        params: [{ calls: [transferCall] }],
+      })
+
+      const rpc = getClient()
+      const blockNumber = await getBlockNumber(rpc)
+
+      await provider.request({
+        method: 'wallet_revokeAccessKey',
+        params: [
+          {
+            accessKeyAddress: keyAuthorization.address!,
+            address: connected,
+            feePayer: server.url,
+          },
+        ],
+      })
+
+      const logs = await getLogs(rpc, {
+        address: Addresses.accountKeychain,
+        fromBlock: blockNumber,
+        toBlock: 'latest',
+      })
+      const event = Actions.accessKey.revoke.extractEvent(logs)
+      const receipt = await getTransactionReceipt(rpc, { hash: event.transactionHash })
+      const metadata = await Actions.accessKey.getMetadata(rpc, {
+        account: connected,
+        accessKey: keyAuthorization.address!,
+      })
+      expect({
+        feePayer: receipt.feePayer,
+        isRevoked: metadata.isRevoked,
+        status: receipt.status,
+      }).toMatchInlineSnapshot(`
+        {
+          "feePayer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+          "isRevoked": true,
+          "status": "success",
+        }
+      `)
     })
 
     test('behavior: feePayer: true uses default from Provider.create', async () => {
