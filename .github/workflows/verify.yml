@@ -13,8 +13,14 @@ jobs:
   checks:
     name: Checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@6a4184039b7a7537d35ace0badc96764d5a1d4d0
+
       - name: Clone repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -39,6 +45,9 @@ jobs:
     name: 'Test Runtime (env: localnet, tag: ${{ matrix.tag }})'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     env:
       TESTCONTAINERS_RYUK_DISABLED: true
     strategy:
@@ -49,6 +58,9 @@ jobs:
           - https://rpc.moderato.tempo.xyz
 
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@6a4184039b7a7537d35ace0badc96764d5a1d4d0
+
       - name: Clone repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -89,7 +101,7 @@ jobs:
 
       - name: Run tests
         run: |
-          if [[ "${{ matrix.tag }}" == sha-* ]]; then
+          if [[ "$VITE_NODE_TAG" == sha-* ]]; then
             pnpm test src/server/internal/handlers/multisig.localnet.test.ts --bail=1
           else
             pnpm test --bail=1
