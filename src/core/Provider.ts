@@ -558,28 +558,29 @@ export function create(options: create.Options = {}): create.ReturnType {
     })
   }
 
-  async function revokeAccessKey(parameters: {
-    address: Address.Address
-    accessKeyAddress: Address.Address
-  }) {
+  async function revokeAccessKey(parameters: Adapter.revokeAccessKey.Parameters) {
     const selected = await getAdapterAccount({ address: parameters.address })
+    const feePayer = parameters.feePayer
     const client = getWalletClient({
       account: selected.account,
+      feePayer: feePayer === true ? undefined : feePayer,
       transport: selected.transport,
     })
     if (selected.account.type === 'json-rpc') {
       await client.request({
         method: 'wallet_revokeAccessKey' as never,
-        params: [parameters] as never,
+        params: [z.encode(Rpc.wallet_revokeAccessKey.parameters, parameters)] as never,
       })
     } else {
       try {
-        await Actions.accessKey.revokeSync(getClient(), {
+        await Actions.accessKey.revokeSync(client, {
           account: selected.account as TempoAccount.Account,
           accessKey: parameters.accessKeyAddress,
+          ...(feePayer ? { feePayer: true as never } : {}),
+          ...(parameters.keyAuthorization ? { keyAuthorization: parameters.keyAuthorization } : {}),
         })
       } catch (error) {
-        if (!AccessKey.isUnavailableError(error)) throw error
+        if (typeof feePayer === 'string' || !AccessKey.isUnavailableError(error)) throw error
       }
     }
     store.accessKeys.remove({
@@ -677,6 +678,13 @@ export function create(options: create.Options = {}): create.ReturnType {
     parameters: Adapter.revokeAccessKey.Parameters,
     request: Pick<Rpc.wallet_revokeAccessKey.Encoded, 'method' | 'params'>,
   ) {
+    if (
+      parameters.keyAuthorization &&
+      !AddressUtil.isEqual(parameters.keyAuthorization.address, parameters.accessKeyAddress)
+    )
+      throw new RpcResponse.InvalidParamsError({
+        message: '`keyAuthorization` must authorize `accessKeyAddress`.',
+      })
     if (actions.revokeAccessKey) return await actions.revokeAccessKey(parameters, request)
     if (instance.getAccount) return await revokeAccessKey(parameters)
     unsupported('revokeAccessKey')
@@ -711,6 +719,12 @@ export function create(options: create.Options = {}): create.ReturnType {
     if (url.startsWith('http://') || url.startsWith('https://')) return url
     if (typeof window !== 'undefined') return new URL(url, window.location.origin).href
     return url
+  }
+
+  function resolveRevocationFeePayer(
+    feePayer: string | boolean | undefined,
+  ): Adapter.revokeAccessKey.Parameters['feePayer'] {
+    return resolveFeePayer(feePayer) ?? (feePayer === true ? true : undefined)
   }
 
   function stripAuthorizeAccessKey(
@@ -1608,7 +1622,10 @@ export function create(options: create.Options = {}): create.ReturnType {
                   case 'wallet_revokeAccessKey': {
                     assertConnected()
                     const [decoded] = request._decoded.params
-                    await revokeAccessKeyAction({ ...decoded }, request)
+                    await revokeAccessKeyAction(
+                      { ...decoded, feePayer: resolveRevocationFeePayer(decoded.feePayer) },
+                      request,
+                    )
                     return
                   }
 

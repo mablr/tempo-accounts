@@ -443,6 +443,10 @@ export declare namespace revokeAccessKey {
     address: Address
     /** Address of the access key to revoke. */
     accessKeyAddress: Address
+    /** App-provided fee sponsorship for the revocation transaction. */
+    feePayer?: boolean | string | undefined
+    /** Signed authorization for an access key that has not been published on-chain. */
+    keyAuthorization?: KeyAuthorization.Signed | undefined
   }
 }
 

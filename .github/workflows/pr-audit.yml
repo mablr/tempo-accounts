@@ -13,7 +13,8 @@ jobs:
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
-    uses: tempoxyz/gh-actions/.github/workflows/pr-audit.yml@dd1014bf8244fded7a501e701cafab240a4f9f0e
+      id-token: write
+    uses: tempoxyz/gh-actions/.github/workflows/pr-audit.yml@f4bce0ad97405915793348b323cf13d2c054400c
     with:
       required-labels: |
         cyclops
@@ -35,11 +36,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
       issues: write
       pull-requests: read
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@d39baa2b43f5eba5d261c047521a4fbd56101129 # 2026-09-23T04-31-11Z-d39baa2b
+
       - name: Handle audit command
-        uses: tempoxyz/gh-actions/actions/pr-audit-comment@dd1014bf8244fded7a501e701cafab240a4f9f0e
+        uses: tempoxyz/gh-actions/actions/pr-audit-comment@f4bce0ad97405915793348b323cf13d2c054400c
         with:
           command-regex: '^(?:@decofe\s+)?(?:cyclops\s+audit|derek\s+audit)\b'
           permission-check-mode: association

@@ -13,8 +13,14 @@ jobs:
   checks:
     name: Checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@d39baa2b43f5eba5d261c047521a4fbd56101129 # 2026-09-23T04-31-11Z-d39baa2b
+
       - name: Clone repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -39,6 +45,9 @@ jobs:
     name: 'Test Runtime (env: localnet, tag: ${{ matrix.tag }})'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     env:
       TESTCONTAINERS_RYUK_DISABLED: true
     strategy:
@@ -49,6 +58,9 @@ jobs:
           - https://rpc.moderato.tempo.xyz
 
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@d39baa2b43f5eba5d261c047521a4fbd56101129 # 2026-09-23T04-31-11Z-d39baa2b
+
       - name: Clone repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -60,7 +72,7 @@ jobs:
           playwright: 'true'
 
       - name: Setup Docker
-        uses: tempoxyz/gh-actions/vendor/docker/setup-docker-action@487be2d19b0ba9ae1903143016444ab752c3e939
+        uses: tempoxyz/gh-actions/vendor/docker/setup-docker-action@d39baa2b43f5eba5d261c047521a4fbd56101129 # 2026-09-23T04-31-11Z-d39baa2b
 
       - name: Resolve Tempo image digest
         if: "!startsWith(matrix.tag, 'http')"
@@ -89,7 +101,7 @@ jobs:
 
       - name: Run tests
         run: |
-          if [[ "${{ matrix.tag }}" == sha-* ]]; then
+          if [[ "$VITE_NODE_TAG" == sha-* ]]; then
             pnpm test src/server/internal/handlers/multisig.localnet.test.ts --bail=1
           else
             pnpm test --bail=1

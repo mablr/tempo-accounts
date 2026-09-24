@@ -1,4 +1,5 @@
 import type { RpcSchema } from 'ox'
+import type { KeyAuthorization } from 'ox/tempo'
 import type { Hex } from 'viem'
 import { describe, expectTypeOf, test } from 'vp/test'
 
@@ -307,6 +308,19 @@ describe('Request', () => {
   test('wallet_switchEthereumChain has decoded params', () => {
     type SwitchChain = Extract<Schema.Request, { method: 'wallet_switchEthereumChain' }>
     expectTypeOf<SwitchChain['params']>().toEqualTypeOf<readonly [{ chainId: number }]>()
+  })
+
+  test('wallet_revokeAccessKey supports app-provided fee sponsorship', () => {
+    expectTypeOf<Rpc.wallet_revokeAccessKey.Decoded['params']>().toEqualTypeOf<
+      readonly [
+        {
+          accessKeyAddress: Hex
+          address: Hex
+          feePayer?: boolean | string | undefined
+          keyAuthorization?: KeyAuthorization.Signed | undefined
+        },
+      ]
+    >()
   })
 
   test('eth_accounts has no params', () => {
