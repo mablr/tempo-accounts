@@ -84,7 +84,13 @@ beforeAll(async () => {
     amount: parseUnits('100', 6),
     to: userAccount.address,
   })
-  await Actions.fee.setUserToken(rpc, { account: userAccount, token: addresses.alphaUsd })
+  // Confirm the preference before a relay can cache the previous on-chain value.
+  await sendTransactionSync(rpc, {
+    account: userAccount,
+    feeToken: addresses.alphaUsd,
+    calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+    throwOnReceiptRevert: true,
+  })
 })
 
 describe('default', () => {
@@ -621,7 +627,11 @@ describe('behavior: with app-provided feePayer URL + autoSwap', () => {
       amount: parseUnits('1000', 6),
       to: sender.address,
     })
-    await Actions.fee.setUserToken(getClient({ account: sender }), { token: addresses.alphaUsd })
+    await sendTransactionSync(getClient({ account: sender }), {
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     // Sender attempts to transfer base via the wallet relay, which forwards
     // to the app relay. The app relay returns 200 with capabilities.error =
@@ -809,7 +819,12 @@ describe('behavior: capabilities', () => {
       to: sender.address,
     })
     // Set fee token so relay doesn't need pathUSD balance.
-    await Actions.fee.setUserToken(rpc, { account: sender, token })
+    await sendTransactionSync(rpc, {
+      account: sender,
+      feeToken: token,
+      calls: [Actions.fee.setUserToken.call({ token })],
+      throwOnReceiptRevert: true,
+    })
 
     const { data, to: callTo } = Actions.token.transfer.call({
       token,
@@ -938,7 +953,11 @@ describe('behavior: capabilities', () => {
       amount: parseUnits('1000', 6),
       to: sender.address,
     })
-    await Actions.fee.setUserToken(getClient({ account: sender }), { token: addresses.alphaUsd })
+    await sendTransactionSync(getClient({ account: sender }), {
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     const buyAmount = parseUnits('10', 6)
     const result = await fillTransaction(client, {
@@ -965,6 +984,9 @@ describe('behavior: capabilities', () => {
     const meta = result.capabilities
 
     const diffs = findDiffs(meta?.balanceDiffs, sender.address)!
+    expect(result.transaction.feeToken).toMatchInlineSnapshot(
+      `"0x20c0000000000000000000000000000000000001"`,
+    )
     expect(diffs).toHaveLength(1)
 
     const quoteDiff = diffs[0]!
@@ -1108,7 +1130,11 @@ describe('behavior: AMM resolution', () => {
       amount: parseUnits('1000', 6),
       to: sender.address,
     })
-    await Actions.fee.setUserToken(getClient({ account: sender }), { token: addresses.alphaUsd })
+    await sendTransactionSync(getClient({ account: sender }), {
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     // Sender tries to transfer base tokens they don't have.
     // Relay should detect InsufficientBalance, swap alphaUsd → base via DEX, and retry.
@@ -1202,7 +1228,11 @@ describe('behavior: AMM resolution', () => {
       amount: parseUnits('1000', 6),
       to: sender.address,
     })
-    await Actions.fee.setUserToken(getClient({ account: sender }), { token: addresses.alphaUsd })
+    await sendTransactionSync(getClient({ account: sender }), {
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     // Create relay with custom 2% slippage.
     const customServer = await createServer(
@@ -1272,7 +1302,11 @@ describe('behavior: AMM resolution', () => {
       amount: parseUnits('1000', 6),
       to: sender.address,
     })
-    await Actions.fee.setUserToken(getClient({ account: sender }), { token: addresses.alphaUsd })
+    await sendTransactionSync(getClient({ account: sender }), {
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     // Create relay with autoSwap disabled.
     const customServer = await createServer(
@@ -1340,7 +1374,12 @@ describe('behavior: conditional sponsoring', () => {
       amount: parseUnits('100', 6),
       to: accounts[3]!.address,
     })
-    await Actions.fee.setUserToken(rpc, { account: accounts[3]!, token: addresses.alphaUsd })
+    await sendTransactionSync(rpc, {
+      account: accounts[3]!,
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     server = await createServer(
       relay({
@@ -1516,7 +1555,12 @@ describe('behavior: path B — conditional sponsorship (validate)', () => {
       amount: parseUnits('100', 6),
       to: rejectedSender.address,
     })
-    await Actions.fee.setUserToken(rpc, { account: rejectedSender, token: addresses.alphaUsd })
+    await sendTransactionSync(rpc, {
+      account: rejectedSender,
+      feeToken: addresses.alphaUsd,
+      calls: [Actions.fee.setUserToken.call({ token: addresses.alphaUsd })],
+      throwOnReceiptRevert: true,
+    })
 
     server = await createServer(
       relay({
@@ -1661,7 +1705,12 @@ describe('behavior: fee token resolution', () => {
     })
 
     // Set on-chain fee token preference.
-    await Actions.fee.setUserToken(rpc, { account: feeTokenAccount, token: preferredToken })
+    await sendTransactionSync(rpc, {
+      account: feeTokenAccount,
+      feeToken: preferredToken,
+      calls: [Actions.fee.setUserToken.call({ token: preferredToken })],
+      throwOnReceiptRevert: true,
+    })
 
     server = await createServer(
       relay({
@@ -1698,7 +1747,7 @@ describe('behavior: fee token resolution', () => {
     expect(transaction.feeToken).toBe(preferredToken)
   })
 
-  test('behavior: resolves to highest-balance token from token list', async () => {
+  test('behavior: skips highest-balance token until its fee pool has liquidity', async () => {
     // Create a fresh TIP20 token "betaUsd" so we can test highest-balance
     // selection without depending on a pre-deployed second token.
     const freshAccount = accounts[5]!
@@ -1751,10 +1800,23 @@ describe('behavior: fee token resolution', () => {
       account: freshAccount.address,
       calls: [transferCall()],
     })
-    customServer.close()
+    // betaUsd has the larger balance but no fee pool yet.
+    expect(transaction.feeToken?.toLowerCase()).toBe(addresses.alphaUsd.toLowerCase())
 
-    // betaUsd has higher balance (500 > 100).
-    expect(transaction.feeToken?.toLowerCase()).toBe(betaUsd.toLowerCase())
+    await Actions.amm.mintSync(rpc, {
+      account: accounts[0]!,
+      feeToken: Addresses.pathUsd,
+      userTokenAddress: betaUsd,
+      validatorTokenAddress: Addresses.pathUsd,
+      validatorTokenAmount: parseUnits('1', 6),
+      to: accounts[0]!.address,
+    })
+    const funded = await fillTransaction(customClient, {
+      account: freshAccount.address,
+      calls: [transferCall()],
+    })
+    customServer.close()
+    expect(funded.transaction.feeToken?.toLowerCase()).toBe(betaUsd.toLowerCase())
   })
 
   test('behavior: falls back to pathUSD when no preference or balances', async () => {
@@ -1970,13 +2032,16 @@ describe('behavior: mainnet autoSwap with USDC.e → PathUSD', () => {
   const mainnetUsdce = '0x20c000000000000000000000b9537d11c60e8b50' as const
   const mainnetPathUsd = '0x20c0000000000000000000000000000000000000' as const
   const mainnetSender = '0xb472f3ca15f34Db22d43FA503043F1e6541AC085' as const
+  const mainnetRpcUrl = 'https://rpc.presto.tempo.xyz'
+  // Keep the swap small: this runs against live mainnet DEX liquidity.
+  const amount = parseUnits('0.001', 6)
 
   beforeAll(async () => {
     server = await createServer(
       relay({
         chains: [tempo],
         features: 'all',
-        transports: { [tempo.id]: http('https://rpc.presto.tempo.xyz') },
+        transports: { [tempo.id]: http(mainnetRpcUrl) },
       }).listener,
     )
     mainnetClient = getClient({ chain: tempo, transport: http(server.url) })
@@ -1986,14 +2051,27 @@ describe('behavior: mainnet autoSwap with USDC.e → PathUSD', () => {
     server.close()
   })
 
-  test('behavior: auto-swaps USDC.e → PathUSD when sender has USDC.e but no PathUSD', async () => {
+  test('behavior: auto-swaps USDC.e → PathUSD when sender has USDC.e but no PathUSD', async (context) => {
+    // Skip rather than fail when live mainnet DEX liquidity can't cover the swap.
+    const quotable = await Actions.dex
+      .getBuyQuote(getClient({ chain: tempo, transport: http(mainnetRpcUrl) }), {
+        amountOut: amount,
+        tokenIn: mainnetUsdce,
+        tokenOut: mainnetPathUsd,
+      })
+      .then(
+        () => true,
+        () => false,
+      )
+    if (!quotable) context.skip('mainnet DEX has insufficient USDC.e → PathUSD liquidity')
+
     const result = await fillTransaction(mainnetClient, {
       account: mainnetSender,
       calls: [
         Actions.token.transfer.call({
           token: mainnetPathUsd,
           to: recipient.address,
-          amount: parseUnits('0.5', 6),
+          amount,
         }),
       ],
     })
